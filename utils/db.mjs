@@ -1,5 +1,4 @@
 import pkg from 'mongodb';
-
 const { MongoClient } = pkg;
 
 class DBClient {
