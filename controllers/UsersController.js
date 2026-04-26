@@ -1,8 +1,8 @@
 import sha1 from 'sha1';
 import dbClient from '../utils/db';
 
-class UsersController {
-  static async postNew(req, res) {
+const UsersController = {
+  postNew: async (req, res) => {
     const { email, password } = req.body;
 
     if (!email) {
@@ -31,7 +31,7 @@ class UsersController {
       id: result.insertedId,
       email,
     });
-  }
-}
+  },
+};
 
 export default UsersController;
