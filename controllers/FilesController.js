@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -8,16 +9,16 @@ class FilesController {
   static async postUpload(req, res) {
     // 1. Authenticate user
     const token = req.header('X-Token');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
     const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    if (!userId) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const user = await dbClient.db.collection('users').findOne({
+      _id: ObjectId(userId),
+    });
 
-    const user = await dbClient.db.collection('users').findOne({ _id: dbClient.ObjectId(userId) });
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
     // 2. Extract body
     const {
@@ -42,9 +43,9 @@ class FilesController {
     // 4. Validate parent
     let parentFile = null;
 
-    if (parentId !== 0) {
+    if (parentId !== 0 && parentId !== '0') {
       parentFile = await dbClient.db.collection('files').findOne({
-        _id: dbClient.ObjectId(parentId),
+        _id: ObjectId(parentId),
       });
 
       if (!parentFile) {
@@ -59,7 +60,7 @@ class FilesController {
     // 5. Folder case
     if (type === 'folder') {
       const newFolder = {
-        userId: dbClient.ObjectId(userId),
+        userId: ObjectId(userId),
         name,
         type,
         isPublic,
@@ -79,7 +80,10 @@ class FilesController {
     }
 
     // 6. File/Image case
-    const folderPath = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const folderPath =
+      process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+        ? process.env.FOLDER_PATH
+        : '/tmp/files_manager';
 
     // Ensure directory exists
     if (!fs.existsSync(folderPath)) {
@@ -89,14 +93,13 @@ class FilesController {
     const fileUuid = uuidv4();
     const localPath = path.join(folderPath, fileUuid);
 
-    // Decode Base64
+    // Decode Base64 safely
     const fileBuffer = Buffer.from(data, 'base64');
 
-    // Save file
     fs.writeFileSync(localPath, fileBuffer);
 
     const newFile = {
-      userId: dbClient.ObjectId(userId),
+      userId: ObjectId(userId),
       name,
       type,
       isPublic,
