@@ -1,16 +1,17 @@
+import { Router } from 'express';
 import AppController from '../controllers/AppController';
 import UsersController from '../controllers/UsersController';
 import AuthController from '../controllers/AuthController';
 
-const routes = (app) => {
-  app.get('/status', AppController.getStatus);
-  app.get('/stats', AppController.getStats);
+const router = Router();
 
-  app.post('/users', UsersController.postNew);
+router.get('/status', AppController.getStatus);
+router.get('/stats', AppController.getStats);
 
-  app.get('/connect', AuthController.getConnect);
-  app.get('/disconnect', AuthController.getDisconnect);
-  app.get('/users/me', UsersController.getMe);
-};
+router.post('/users', UsersController.postNew);
 
-export default routes;
+router.get('/connect', AuthController.getConnect);
+router.get('/disconnect', AuthController.getDisconnect);
+router.get('/users/me', UsersController.getMe);
+
+export default router;
