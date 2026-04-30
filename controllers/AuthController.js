@@ -12,8 +12,20 @@ class AuthController {
     }
 
     const base64 = authHeader.split(' ')[1];
-    const decoded = Buffer.from(base64, 'base64').toString();
-    const [email, password] = decoded.split(':');
+
+    let email;
+    let password;
+
+    try {
+      const decoded = Buffer.from(base64, 'base64').toString();
+      [email, password] = decoded.split(':');
+    } catch (err) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!email || !password) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     const hashedPassword = sha1(password);
 
@@ -26,12 +38,18 @@ class AuthController {
     }
 
     const token = uuidv4();
+
     await redisClient.set(`auth_${token}`, user._id.toString(), 86400);
 
     return res.status(200).json({ token });
   }
-    static async getDisconnect(req, res) {
+
+  static async getDisconnect(req, res) {
     const token = req.headers['x-token'];
+
+    if (!token) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     const userId = await redisClient.get(`auth_${token}`);
 
