@@ -17,7 +17,7 @@ const UsersController = {
       return res.status(400).json({ error: 'Missing password' });
     }
 
-    const db = dbClient.db;
+    const { db } = dbClient;
 
     const userExists = await db.collection('users').findOne({ email });
     if (userExists) {
