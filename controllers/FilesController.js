@@ -7,9 +7,6 @@ import redisClient from '../utils/redis';
 
 class FilesController {
   static async postUpload(req, res) {
-    // -------------------------
-    // 1. AUTHENTICATION
-    // -------------------------
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -22,9 +19,6 @@ class FilesController {
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // -------------------------
-    // 2. INPUT EXTRACTION
-    // -------------------------
     const {
       name,
       type,
@@ -33,9 +27,6 @@ class FilesController {
       data,
     } = req.body;
 
-    // -------------------------
-    // 3. VALIDATION
-    // -------------------------
     if (!name) return res.status(400).json({ error: 'Missing name' });
 
     if (!type || !['folder', 'file', 'image'].includes(type)) {
@@ -46,15 +37,16 @@ class FilesController {
       return res.status(400).json({ error: 'Missing data' });
     }
 
-    // -------------------------
-    // 4. PARENT VALIDATION
-    // -------------------------
     let parentFile = null;
 
     if (parentId !== 0 && parentId !== '0') {
-      parentFile = await dbClient.db.collection('files').findOne({
-        _id: ObjectId(parentId),
-      });
+      try {
+        parentFile = await dbClient.db.collection('files').findOne({
+          _id: ObjectId(parentId),
+        });
+      } catch (e) {
+        return res.status(400).json({ error: 'Parent not found' });
+      }
 
       if (!parentFile) {
         return res.status(400).json({ error: 'Parent not found' });
@@ -65,9 +57,6 @@ class FilesController {
       }
     }
 
-    // -------------------------
-    // 5. FOLDER CASE
-    // -------------------------
     if (type === 'folder') {
       const newFolder = {
         userId: ObjectId(userId),
@@ -89,9 +78,6 @@ class FilesController {
       });
     }
 
-    // -------------------------
-    // 6. FILE / IMAGE CASE
-    // -------------------------
     const folderPath =
       process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
         ? process.env.FOLDER_PATH
@@ -104,8 +90,7 @@ class FilesController {
     const fileUuid = uuidv4();
     const localPath = path.join(folderPath, fileUuid);
 
-    const fileBuffer = Buffer.from(data, 'base64');
-    fs.writeFileSync(localPath, fileBuffer);
+    fs.writeFileSync(localPath, Buffer.from(data, 'base64'));
 
     const newFile = {
       userId: ObjectId(userId),
@@ -137,15 +122,14 @@ class FilesController {
 
     const fileId = req.params.id;
 
-    let file;
-    try {
-      file = await dbClient.db.collection('files').findOne({
-        _id: ObjectId(fileId),
-        userId: ObjectId(userId),
-      });
-    } catch (e) {
+    if (!ObjectId.isValid(fileId)) {
       return res.status(404).json({ error: 'Not found' });
     }
+
+    const file = await dbClient.db.collection('files').findOne({
+      _id: ObjectId(fileId),
+      userId: ObjectId(userId),
+    });
 
     if (!file) return res.status(404).json({ error: 'Not found' });
 
@@ -173,33 +157,27 @@ class FilesController {
 
     const matchQuery = {
       userId: ObjectId(userId),
-      parentId: parentId === '0' ? 0 : parentId,
+      parentId,
     };
 
-    let files = [];
+    const files = await dbClient.db.collection('files')
+      .aggregate([
+        { $match: matchQuery },
+        { $skip: page * 20 },
+        { $limit: 20 },
+      ])
+      .toArray();
 
-    try {
-      files = await dbClient.db.collection('files')
-        .aggregate([
-          { $match: matchQuery },
-          { $skip: page * 20 },
-          { $limit: 20 },
-        ])
-        .toArray();
-    } catch (err) {
-      return res.status(200).json([]); // NEVER HANG TESTS
-    }
-
-    const formatted = files.map((file) => ({
-      id: file._id,
-      userId: file.userId,
-      name: file.name,
-      type: file.type,
-      isPublic: file.isPublic,
-      parentId: file.parentId,
-    }));
-
-    return res.status(200).json(formatted);
+    return res.status(200).json(
+      files.map((file) => ({
+        id: file._id,
+        userId: file.userId,
+        name: file.name,
+        type: file.type,
+        isPublic: file.isPublic,
+        parentId: file.parentId,
+      }))
+    );
   }
 }
 
