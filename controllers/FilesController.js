@@ -7,7 +7,9 @@ import redisClient from '../utils/redis';
 
 class FilesController {
   static async postUpload(req, res) {
-    // 1. Authenticate user
+    // -------------------------
+    // 1. AUTHENTICATION
+    // -------------------------
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -20,7 +22,9 @@ class FilesController {
 
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
-    // 2. Extract body
+    // -------------------------
+    // 2. INPUT EXTRACTION
+    // -------------------------
     const {
       name,
       type,
@@ -29,7 +33,9 @@ class FilesController {
       data,
     } = req.body;
 
-    // 3. Validate inputs
+    // -------------------------
+    // 3. VALIDATION
+    // -------------------------
     if (!name) return res.status(400).json({ error: 'Missing name' });
 
     if (!type || !['folder', 'file', 'image'].includes(type)) {
@@ -40,7 +46,9 @@ class FilesController {
       return res.status(400).json({ error: 'Missing data' });
     }
 
-    // 4. Validate parent
+    // -------------------------
+    // 4. PARENT VALIDATION
+    // -------------------------
     let parentFile = null;
 
     if (parentId !== 0 && parentId !== '0') {
@@ -57,7 +65,9 @@ class FilesController {
       }
     }
 
-    // 5. Folder case
+    // -------------------------
+    // 5. FOLDER CASE
+    // -------------------------
     if (type === 'folder') {
       const newFolder = {
         userId: ObjectId(userId),
@@ -79,13 +89,13 @@ class FilesController {
       });
     }
 
-    // 6. File/Image case
-    const folderPath =
-      process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
-        ? process.env.FOLDER_PATH
-        : '/tmp/files_manager';
+    // -------------------------
+    // 6. FILE / IMAGE CASE
+    // -------------------------
+    const folderPath = process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+      ? process.env.FOLDER_PATH
+      : '/tmp/files_manager';
 
-    // Ensure directory exists
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
@@ -93,9 +103,7 @@ class FilesController {
     const fileUuid = uuidv4();
     const localPath = path.join(folderPath, fileUuid);
 
-    // Decode Base64 safely
     const fileBuffer = Buffer.from(data, 'base64');
-
     fs.writeFileSync(localPath, fileBuffer);
 
     const newFile = {
