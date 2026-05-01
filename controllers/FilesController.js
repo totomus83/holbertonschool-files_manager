@@ -39,15 +39,14 @@ class FilesController {
       return res.status(400).json({ error: 'Missing data' });
     }
 
-    // -------------------------
-    // Parent validation
-    // -------------------------
+    let parentFile = null;
+
     if (parentId !== 0 && parentId !== '0') {
       if (!ObjectId.isValid(parentId)) {
         return res.status(400).json({ error: 'Parent not found' });
       }
 
-      const parentFile = await dbClient.db.collection('files').findOne({
+      parentFile = await dbClient.db.collection('files').findOne({
         _id: ObjectId(parentId),
       });
 
@@ -60,9 +59,6 @@ class FilesController {
       }
     }
 
-    // -------------------------
-    // Folder
-    // -------------------------
     if (type === 'folder') {
       const result = await dbClient.db.collection('files').insertOne({
         userId: ObjectId(userId),
@@ -82,10 +78,7 @@ class FilesController {
       });
     }
 
-    // -------------------------
-    // File / Image
-    // -------------------------
-    const folderPath = process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+    const folderPath = (process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0)
       ? process.env.FOLDER_PATH
       : '/tmp/files_manager';
 
@@ -160,8 +153,7 @@ class FilesController {
 
     const page = req.query.page ? parseInt(req.query.page, 10) : 0;
 
-    // ✅ FIX: use let, not destructured const
-    let { parentId } = req.query;
+    let parentId = req.query.parentId;
     if (parentId === undefined) parentId = '0';
 
     let parentFilter;
@@ -201,6 +193,90 @@ class FilesController {
     } catch (err) {
       return res.status(200).json([]);
     }
+  }
+
+  // -------------------------
+  // PUT /files/:id/publish
+  // -------------------------
+  static async putPublish(req, res) {
+    const token = req.header('X-Token');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const file = await dbClient.db.collection('files').findOne({
+      _id: ObjectId(id),
+      userId: ObjectId(userId),
+    });
+
+    if (!file) return res.status(404).json({ error: 'Not found' });
+
+    await dbClient.db.collection('files').updateOne(
+      { _id: ObjectId(id) },
+      { $set: { isPublic: true } },
+    );
+
+    const updatedFile = await dbClient.db.collection('files').findOne({
+      _id: ObjectId(id),
+    });
+
+    return res.status(200).json({
+      id: updatedFile._id,
+      userId: updatedFile.userId,
+      name: updatedFile.name,
+      type: updatedFile.type,
+      isPublic: updatedFile.isPublic,
+      parentId: updatedFile.parentId,
+    });
+  }
+
+  // -------------------------
+  // PUT /files/:id/unpublish
+  // -------------------------
+  static async putUnpublish(req, res) {
+    const token = req.header('X-Token');
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+    const userId = await redisClient.get(`auth_${token}`);
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const file = await dbClient.db.collection('files').findOne({
+      _id: ObjectId(id),
+      userId: ObjectId(userId),
+    });
+
+    if (!file) return res.status(404).json({ error: 'Not found' });
+
+    await dbClient.db.collection('files').updateOne(
+      { _id: ObjectId(id) },
+      { $set: { isPublic: false } },
+    );
+
+    const updatedFile = await dbClient.db.collection('files').findOne({
+      _id: ObjectId(id),
+    });
+
+    return res.status(200).json({
+      id: updatedFile._id,
+      userId: updatedFile.userId,
+      name: updatedFile.name,
+      type: updatedFile.type,
+      isPublic: updatedFile.isPublic,
+      parentId: updatedFile.parentId,
+    });
   }
 }
 
