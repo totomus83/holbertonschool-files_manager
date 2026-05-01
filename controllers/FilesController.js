@@ -161,7 +161,7 @@ class FilesController {
     const page = req.query.page ? parseInt(req.query.page, 10) : 0;
 
     // ✅ FIX: use let, not destructured const
-    let parentId = req.query.parentId;
+    let { parentId } = req.query;
     if (parentId === undefined) parentId = '0';
 
     let parentFilter;
