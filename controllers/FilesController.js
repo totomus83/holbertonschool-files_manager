@@ -87,10 +87,8 @@ class FilesController {
     // -------------------------
     // File / Image case
     // -------------------------
-    const folderPath =
-      process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
-        ? process.env.FOLDER_PATH
-        : '/tmp/files_manager';
+    const folderPath = (process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0)
+      ? process.env.FOLDER_PATH : '/tmp/files_manager';
 
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
@@ -165,7 +163,7 @@ class FilesController {
 
     const page = req.query.page ? parseInt(req.query.page, 10) : 0;
 
-    let parentId = req.query.parentId;
+    const { parentId } = req.query;
     if (parentId === undefined) parentId = '0';
 
     let parentFilter;
