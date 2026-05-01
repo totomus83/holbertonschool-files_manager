@@ -153,7 +153,7 @@ class FilesController {
 
     const page = req.query.page ? parseInt(req.query.page, 10) : 0;
 
-    let { parentId = '0' } = req.query;
+    const { parentId = '0' } = req.query;
 
     let parentFilter;
 
