@@ -42,14 +42,12 @@ class FilesController {
     // -------------------------
     // Parent validation
     // -------------------------
-    let parentFile = null;
-
     if (parentId !== 0 && parentId !== '0') {
       if (!ObjectId.isValid(parentId)) {
         return res.status(400).json({ error: 'Parent not found' });
       }
 
-      parentFile = await dbClient.db.collection('files').findOne({
+      const parentFile = await dbClient.db.collection('files').findOne({
         _id: ObjectId(parentId),
       });
 
@@ -63,7 +61,7 @@ class FilesController {
     }
 
     // -------------------------
-    // Folder case
+    // Folder
     // -------------------------
     if (type === 'folder') {
       const result = await dbClient.db.collection('files').insertOne({
@@ -85,18 +83,17 @@ class FilesController {
     }
 
     // -------------------------
-    // File / Image case
+    // File / Image
     // -------------------------
-    const folderPath = (process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0)
-      ? process.env.FOLDER_PATH : '/tmp/files_manager';
+    const folderPath = process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+      ? process.env.FOLDER_PATH
+      : '/tmp/files_manager';
 
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
     }
 
-    const fileUuid = uuidv4();
-    const localPath = path.join(folderPath, fileUuid);
-
+    const localPath = path.join(folderPath, uuidv4());
     fs.writeFileSync(localPath, Buffer.from(data, 'base64'));
 
     const result = await dbClient.db.collection('files').insertOne({
@@ -163,13 +160,13 @@ class FilesController {
 
     const page = req.query.page ? parseInt(req.query.page, 10) : 0;
 
-    const { parentId } = req.query;
+    // ✅ FIX: use let, not destructured const
+    let parentId = req.query.parentId;
     if (parentId === undefined) parentId = '0';
 
     let parentFilter;
 
     if (parentId === '0') {
-      // 🔥 handle both string & number root
       parentFilter = { $in: [0, '0'] };
     } else if (ObjectId.isValid(parentId)) {
       parentFilter = ObjectId(parentId);
@@ -202,7 +199,6 @@ class FilesController {
         })),
       );
     } catch (err) {
-      // 🚨 never let tests hang
       return res.status(200).json([]);
     }
   }
