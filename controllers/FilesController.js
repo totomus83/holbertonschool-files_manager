@@ -78,9 +78,10 @@ class FilesController {
       });
     }
 
-    const folderPath = (process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0)
-      ? process.env.FOLDER_PATH
-      : '/tmp/files_manager';
+    const folderPath =
+      process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+        ? process.env.FOLDER_PATH
+        : '/tmp/files_manager';
 
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
@@ -166,33 +167,29 @@ class FilesController {
       return res.status(200).json([]);
     }
 
-    try {
-      const files = await dbClient.db.collection('files')
-        .aggregate([
-          {
-            $match: {
-              userId: ObjectId(userId),
-              parentId: parentFilter,
-            },
+    const files = await dbClient.db.collection('files')
+      .aggregate([
+        {
+          $match: {
+            userId: ObjectId(userId),
+            parentId: parentFilter,
           },
-          { $skip: page * 20 },
-          { $limit: 20 },
-        ])
-        .toArray();
+        },
+        { $skip: page * 20 },
+        { $limit: 20 },
+      ])
+      .toArray();
 
-      return res.status(200).json(
-        files.map((file) => ({
-          id: file._id,
-          userId: file.userId,
-          name: file.name,
-          type: file.type,
-          isPublic: file.isPublic,
-          parentId: file.parentId,
-        })),
-      );
-    } catch (err) {
-      return res.status(200).json([]);
-    }
+    return res.status(200).json(
+      files.map((file) => ({
+        id: file._id,
+        userId: file.userId,
+        name: file.name,
+        type: file.type,
+        isPublic: file.isPublic,
+        parentId: file.parentId,
+      })),
+    );
   }
 
   // -------------------------
