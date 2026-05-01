@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import mime from 'mime-types';
 import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import mime from 'mime-types';
 
 class FilesController {
   static async postUpload(req, res) {
@@ -76,9 +76,10 @@ class FilesController {
       });
     }
 
-    const folderPath = process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
-      ? process.env.FOLDER_PATH
-      : '/tmp/files_manager';
+    const folderPath =
+      process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+        ? process.env.FOLDER_PATH
+        : '/tmp/files_manager';
 
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
@@ -145,7 +146,7 @@ class FilesController {
 
     const page = req.query.page ? parseInt(req.query.page, 10) : 0;
 
-    const { parentId = '0' } = req.query;
+    let { parentId = '0' } = req.query;
 
     let parentFilter;
 
@@ -268,7 +269,7 @@ class FilesController {
     }
 
     const file = await dbClient.db.collection('files').findOne({
-    _id: ObjectId(id),
+      _id: ObjectId(id),
     });
 
     if (!file) {
@@ -283,6 +284,7 @@ class FilesController {
     }
 
     const isOwner = userId && file.userId.toString() === userId;
+
     if (!file.isPublic && !isOwner) {
       return res.status(404).json({ error: 'Not found' });
     }
@@ -295,7 +297,6 @@ class FilesController {
       return res.status(404).json({ error: 'Not found' });
     }
 
-    const mime = require('mime-types');
     const fileContent = fs.readFileSync(file.localPath);
 
     const contentType = mime.lookup(file.name) || 'text/plain';
