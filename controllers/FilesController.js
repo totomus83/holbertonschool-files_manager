@@ -3,8 +3,19 @@ import fs from 'fs';
 import path from 'path';
 import mime from 'mime-types';
 import { ObjectId } from 'mongodb';
+import Bull from 'bull';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+
+// -------------------------
+// Bull Queue
+// -------------------------
+const fileQueue = new Bull('fileQueue', {
+  redis: {
+    host: '127.0.0.1',
+    port: 6379,
+  },
+});
 
 class FilesController {
   static async postUpload(req, res) {
@@ -76,9 +87,10 @@ class FilesController {
       });
     }
 
-    const folderPath = process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
-      ? process.env.FOLDER_PATH
-      : '/tmp/files_manager';
+    const folderPath =
+      process.env.FOLDER_PATH && process.env.FOLDER_PATH.length > 0
+        ? process.env.FOLDER_PATH
+        : '/tmp/files_manager';
 
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
@@ -95,6 +107,16 @@ class FilesController {
       parentId,
       localPath,
     });
+
+    // -------------------------
+    // Add image processing job
+    // -------------------------
+    if (type === 'image') {
+      fileQueue.add({
+        userId,
+        fileId: result.insertedId.toString(),
+      });
+    }
 
     return res.status(201).json({
       id: result.insertedId,
@@ -271,9 +293,7 @@ class FilesController {
       _id: ObjectId(id),
     });
 
-    if (!file) {
-      return res.status(404).json({ error: 'Not found' });
-    }
+    if (!file) return res.status(404).json({ error: 'Not found' });
 
     const token = req.header('X-Token');
     let userId = null;
