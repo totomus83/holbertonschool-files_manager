@@ -4,11 +4,9 @@ import path from 'path';
 import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+import mime from 'mime-types';
 
 class FilesController {
-  // -------------------------
-  // POST /files
-  // -------------------------
   static async postUpload(req, res) {
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -108,9 +106,6 @@ class FilesController {
     });
   }
 
-  // -------------------------
-  // GET /files/:id
-  // -------------------------
   static async getShow(req, res) {
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -141,9 +136,6 @@ class FilesController {
     });
   }
 
-  // -------------------------
-  // GET /files
-  // -------------------------
   static async getIndex(req, res) {
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -190,9 +182,6 @@ class FilesController {
     );
   }
 
-  // -------------------------
-  // PUT /files/:id/publish
-  // -------------------------
   static async putPublish(req, res) {
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -232,9 +221,6 @@ class FilesController {
     });
   }
 
-  // -------------------------
-  // PUT /files/:id/unpublish
-  // -------------------------
   static async putUnpublish(req, res) {
     const token = req.header('X-Token');
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
@@ -272,6 +258,50 @@ class FilesController {
       isPublic: updatedFile.isPublic,
       parentId: updatedFile.parentId,
     });
+  }
+
+  static async getFile(req, res) {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const file = await dbClient.db.collection('files').findOne({
+    _id: ObjectId(id),
+    });
+
+    if (!file) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const token = req.header('X-Token');
+    let userId = null;
+
+    if (token) {
+      userId = await redisClient.get(`auth_${token}`);
+    }
+
+    const isOwner = userId && file.userId.toString() === userId;
+    if (!file.isPublic && !isOwner) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    if (file.type === 'folder') {
+      return res.status(400).json({ error: "A folder doesn't have content" });
+    }
+
+    if (!file.localPath || !fs.existsSync(file.localPath)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    const mime = require('mime-types');
+    const fileContent = fs.readFileSync(file.localPath);
+
+    const contentType = mime.lookup(file.name) || 'text/plain';
+
+    res.setHeader('Content-Type', contentType);
+    return res.status(200).send(fileContent);
   }
 }
 
